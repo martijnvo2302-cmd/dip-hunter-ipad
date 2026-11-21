@@ -72,7 +72,12 @@ with st.sidebar:
     only_matches = st.checkbox('Alleen aandelen met daling ≥ grens', value=True)
     run = st.button('🔎 Scan nu', type='primary', use_container_width=True)
 
-st.info('📱 iPad: tik linksboven op het menu om de scaninstellingen te openen. Veeg horizontaal in de resultatentabel voor meer kolommen.\n\nKoersen: Yahoo Finance via yfinance. Dit zijn dagelijkse OHLCV-koersen, niet gegarandeerd live; vertraging verschilt per beurs. Datum per aandeel staat in de resultaten. Controleer de actuele bied-/laatprijs bij je broker vóór een order.')
+@st.dialog('ℹ️ Informatie over Dip Hunter')
+def show_information():
+    st.info('📱 iPad: tik linksboven op het menu om de scaninstellingen te openen. Veeg horizontaal in de resultatentabel voor meer kolommen.\n\nKoersen: Yahoo Finance via yfinance. Dit zijn dagelijkse OHLCV-koersen, niet gegarandeerd live; vertraging verschilt per beurs. Datum per aandeel staat in de resultaten. Controleer de actuele bied-/laatprijs bij je broker vóór een order.')
+
+if st.button('❔', help='Open informatie over de scanner', key='help_info'):
+    show_information()
 
 @st.cache_data(ttl=600, show_spinner=False)
 def get_data(tickers):
@@ -201,6 +206,10 @@ if 'results' in st.session_state:
                                  'Marktstatus':ms['status'], 'Advies':trade_advice(row,ms['status'],drop), **{k:v for k,v in row.items() if k != 'Ticker'}})
         table = pd.DataFrame(enriched)
         st.dataframe(table, hide_index=True, use_container_width=True)
+
+        st.download_button('⬇️ Download resultaten als CSV',table.to_csv(index=False).encode('utf-8-sig'),'dip_hunter_resultaten.csv','text/csv')
+        selected = st.selectbox('Bekijk koersgrafiek', [r['Ticker'] for r in shown])
+        st.line_chart(st.session_state['history'][selected]['Close'].rename('Aangepaste slotkoers')) if selected in st.session_state.get('history', {}) else st.caption('Geen koersgrafiek beschikbaar.')
         st.markdown('''**Interpretatie van de kolommen**
 - **Ticker:** unieke beurscode van het aandeel.
 - **Naam:** bedrijfsnaam volgens de databron; onbekend als die niet beschikbaar is.
@@ -220,9 +229,6 @@ if 'results' in st.session_state:
 - **Aantal hele aandelen / Kosten lokaal:** indicatief aantal binnen het eurobudget en bijbehorende kosten in handelsvaluta, zonder transactiekosten of valutamarge.
 
 **Datakwaliteit:** Yahoo Finance-dagkoersen kunnen vertraagd of onvolledig zijn. Controleer actuele prijzen en bedrijfsnieuws bij je broker. Geen automatische orders.''')
-        st.download_button('⬇️ Download resultaten als CSV',table.to_csv(index=False).encode('utf-8-sig'),'dip_hunter_resultaten.csv','text/csv')
-        selected = st.selectbox('Bekijk koersgrafiek', [r['Ticker'] for r in shown])
-        st.line_chart(st.session_state['history'][selected]['Close'].rename('Aangepaste slotkoers')) if selected in st.session_state.get('history', {}) else st.caption('Geen koersgrafiek beschikbaar.')
     else:
         st.warning('Geen kandidaten met deze filters. Dit is een geldig resultaat; de scanner verzint geen signalen. Probeer eventueel de grens of het liquiditeitsfilter aan te passen.')
     if st.session_state.get('errors'):
