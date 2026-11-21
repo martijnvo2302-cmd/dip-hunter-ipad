@@ -19,6 +19,47 @@ st.caption('Aandelenscanner • Amerika + Europa • dagkoersen, geen realtime h
 US = 'AAPL MSFT NVDA AMD INTC TSLA META AMZN GOOGL NFLX PLTR PYPL SQ COIN HOOD ROKU SHOP UBER ABNB DIS BA NKE PFE MRNA BNTX ENPH FSLR SMCI MU ARM RIVN LCID SOFI SNAP PINS DKNG CRWD PANW ZS MDB SNOW NET DDOG CELH LULU TGT WMT'.split()
 EU = 'ASML.AS ADYEN.AS PHIA.AS INGA.AS ABN.AS HEIA.AS PRX.AS RAND.AS WKL.AS ASM.AS BESI.AS KPN.AS AKZA.AS NN.AS AALB.AS UNA.AS SHELL.AS MT.AS RWE.DE SAP.DE SIE.DE BAS.DE BMW.DE VOW3.DE ADS.DE DTE.DE IFX.DE BAYN.DE ALV.DE DBK.DE AIR.PA OR.PA MC.PA TTE.PA SAN.PA BNP.PA CAP.PA STMPA.PA DG.PA SU.PA KER.PA VIE.PA NOKIA.HE NESTE.HE NOVO-B.CO MAERSK-B.CO'.split()
 
+# Names are resolved from Yahoo metadata when available; unknown values remain explicit.
+@st.cache_data(ttl=86400, show_spinner=False)
+def get_identity(ticker):
+    try:
+        info = yf.Ticker(ticker).get_info()
+        return (info.get('shortName') or info.get('longName') or 'Naam onbekend',
+                info.get('fullExchangeName') or info.get('exchange') or 'Beurs onbekend')
+    except Exception:
+        return 'Naam onbekend', 'Beurs onbekend'
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_market_status():
+    # S&P 500 as market thermometer; a 20-day drawdown is a heuristic, not an official crash definition.
+    try:
+        data = yf.download('^GSPC', period='4mo', interval='1d', auto_adjust=True, progress=False, timeout=20)
+        if data is None or data.empty:
+            raise ValueError('geen indexgegevens')
+        close = data['Close']
+        if isinstance(close, pd.DataFrame): close = close.iloc[:, 0]
+        close = close.dropna()
+        if len(close) < 21: raise ValueError('te weinig indexgegevens')
+        drawdown = (float(close.iloc[-1])/float(close.tail(21).max())-1)*100
+        ma20 = float(close.tail(20).mean())
+        last = float(close.iloc[-1])
+        if drawdown <= -10: status = 'Crash'
+        elif drawdown <= -5 or last < ma20: status = 'Correctie'
+        else: status = 'Normaal'
+        return {'status': status, 'drawdown': round(drawdown,2), 'date': str(pd.Timestamp(close.index[-1]).date()), 'error': None}
+    except Exception as exc:
+        return {'status': 'Onbekend', 'drawdown': None, 'date': None, 'error': str(exc)[:120]}
+
+def trade_advice(row, market_status, drop):
+    # Screening label, not a personalized recommendation or guarantee.
+    if market_status in ('Crash', 'Onbekend'):
+        return 'WACHTEN'
+    if row['Daling 5d %'] > -drop or row['Herstel /100'] < 75 or row['Risico /100'] > 40:
+        return 'WACHTEN'
+    if market_status == 'Correctie' and row['Herstel /100'] < 100:
+        return 'WACHTEN'
+    return 'KOPEN (signaal)'
+
 with st.sidebar:
     st.header('Scannerinstellingen')
     market = st.selectbox('Markt', ['ALL', 'US', 'EU'])
@@ -132,6 +173,7 @@ if run:
     st.session_state['errors'] = errors
     st.session_state['count'] = len(tickers)
     st.session_state['scan_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    st.session_state['market_status'] = get_market_status()
 
 if 'results' in st.session_state:
     rows = st.session_state['results']
@@ -143,10 +185,42 @@ if 'results' in st.session_state:
     c4.metric('Scan uitgevoerd',st.session_state['scan_at'])
     shown = matches if only_matches else rows
     shown = sorted(shown, key=lambda x:(-x['Herstel /100'],x['Risico /100'],x['Daling 5d %']))
+    ms = st.session_state.get('market_status', {'status':'Onbekend','drawdown':None,'date':None})
+    st.subheader('🌍 Marktstatus — S&P 500')
+    st.write(f"**{ms['status']}** · 20-daagse terugval vanaf hoogste slotkoers: {str(ms['drawdown']) + '%' if ms['drawdown'] is not None else 'onbekend'} · Laatste indexkoersdatum: {ms['date'] or 'onbekend'}")
+    st.caption('Heuristiek: Crash bij ≤ −10% vanaf hoogste slotkoers van de laatste 21 handelsdagen; Correctie bij ≤ −5% of onder het 20-daags gemiddelde; anders Normaal. Dit is geen officiële beursclassificatie. De S&P 500 is een Amerikaanse marktindicator, geen volledige weergave van Europa.')
+    if ms.get('error'): st.warning('Marktstatus niet beschikbaar: '+ms['error'])
     if shown:
         st.caption('Tip: tik op een rij en veeg in de tabel horizontaal om alle gegevens te bekijken.')
-        st.dataframe(pd.DataFrame(shown), hide_index=True, use_container_width=True)
-        st.download_button('⬇️ Download resultaten als CSV',pd.DataFrame(shown).to_csv(index=False).encode('utf-8-sig'),'dip_hunter_resultaten.csv','text/csv')
+        # Enrich only visible rows to limit metadata calls and provider throttling.
+        with st.spinner('Namen en beurzen van zichtbare aandelen ophalen…'):
+            enriched = []
+            for row in shown:
+                name, exchange = get_identity(row['Ticker'])
+                enriched.append({'Ticker':row['Ticker'], 'Naam':name, 'Beurs':exchange,
+                                 'Marktstatus':ms['status'], 'Advies':trade_advice(row,ms['status'],drop), **{k:v for k,v in row.items() if k != 'Ticker'}})
+        table = pd.DataFrame(enriched)
+        st.dataframe(table, hide_index=True, use_container_width=True)
+        st.markdown('''**Interpretatie van de kolommen**
+- **Ticker:** unieke beurscode van het aandeel.
+- **Naam:** bedrijfsnaam volgens de databron; onbekend als die niet beschikbaar is.
+- **Beurs:** handelsbeurs volgens de databron; onbekend als die niet beschikbaar is.
+- **Marktstatus:** Normaal, Correctie, Crash of Onbekend, gebaseerd op de S&P 500.
+- **Advies:** **KOPEN (signaal)** alleen als de koersdaling voldoet, herstelscore ≥ 75, risico ≤ 40 en de marktfilter dit toestaat; anders **WACHTEN**. Geen persoonlijk beleggingsadvies.
+- **Datum koers:** datum van de laatste beschikbare dagkoers, niet noodzakelijk vandaag.
+- **Valuta / Koers:** handelsvaluta en laatst beschikbare aangepaste slotkoers.
+- **Daling 5d %:** procentuele koersverandering over vijf handelsdagen; negatief betekent daling.
+- **Herstel /100:** technische herstelsignalen, hoger betekent meer signalen; **geen kanspercentage**.
+- **Risico /100:** ruwe waarschuwing op basis van volatiliteit, daling en handelsactiviteit; hoger betekent meer risico.
+- **RSI 14:** momentumindicator; lage waarden kunnen wijzen op sterke verkoopdruk.
+- **Volume x:** handelsvolume laatste dag gedeeld door gemiddeld volume; boven 1 betekent meer activiteit.
+- **Dagomzet:** gemiddelde geschatte dagomzet in lokale valuta.
+- **Volatiliteit %:** geannualiseerde historische koersschommeling; hoger betekent beweeglijker.
+- **Doelkoers / Stopkoers:** berekende niveaus bij respectievelijk +10% en −5% (of jouw instellingen); uitvoering niet gegarandeerd.
+- **Aantal hele aandelen / Kosten lokaal:** indicatief aantal binnen het eurobudget en bijbehorende kosten in handelsvaluta, zonder transactiekosten of valutamarge.
+
+**Datakwaliteit:** Yahoo Finance-dagkoersen kunnen vertraagd of onvolledig zijn. Controleer actuele prijzen en bedrijfsnieuws bij je broker. Geen automatische orders.''')
+        st.download_button('⬇️ Download resultaten als CSV',table.to_csv(index=False).encode('utf-8-sig'),'dip_hunter_resultaten.csv','text/csv')
         selected = st.selectbox('Bekijk koersgrafiek', [r['Ticker'] for r in shown])
         st.line_chart(st.session_state['history'][selected]['Close'].rename('Aangepaste slotkoers')) if selected in st.session_state.get('history', {}) else st.caption('Geen koersgrafiek beschikbaar.')
     else:
@@ -158,4 +232,4 @@ else:
     st.write('Klik links op **Scan nu** om de ingestelde aandelen te analyseren.')
 
 st.divider()
-st.markdown('**Interpretatie:** Herstelscore 0–100 is een eenvoudige technische score, geen kansberekening. Risicoscore 0–100 is een ruwe waarschuwing op basis van koersbeweging, volatiliteit en liquiditeit; geen fundamentele of nieuwscontrole. De scanner scant een vooraf ingestelde selectie aandelen, niet de volledige Amerikaanse en Europese beurzen. Aantal aandelen is een indicatie zonder kosten of valutamarge. **Geen automatische orders.**')
+st.markdown('**Algemene toelichting:** Herstelscore 0–100 is een eenvoudige technische score, geen kansberekening. Risicoscore 0–100 is een ruwe waarschuwing op basis van koersbeweging, volatiliteit en liquiditeit; geen fundamentele of nieuwscontrole. De scanner scant een vooraf ingestelde selectie aandelen, niet de volledige Amerikaanse en Europese beurzen. Aantal aandelen is een indicatie zonder kosten of valutamarge. **Geen automatische orders.**')
