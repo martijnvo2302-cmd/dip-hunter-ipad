@@ -1,4 +1,5 @@
 import math
+import textwrap
 from datetime import datetime, timezone
 import pandas as pd
 import streamlit as st
@@ -205,12 +206,22 @@ if 'results' in st.session_state:
                 enriched.append({'Ticker':row['Ticker'], 'Naam':name, 'Beurs':exchange,
                                  'Marktstatus':ms['status'], 'Advies':trade_advice(row,ms['status'],drop), **{k:v for k,v in row.items() if k != 'Ticker'}})
         table = pd.DataFrame(enriched)
-        st.dataframe(table, hide_index=True, use_container_width=True)
+        # Colour only the advice column; CSV retains the original plain-text values.
+        def advice_style(value):
+            if value == 'WACHTEN':
+                return 'color: #b91c1c; background-color: #fee2e2; font-weight: bold'
+            if value == 'KOPEN (signaal)':
+                return 'color: #166534; background-color: #dcfce7; font-weight: bold'
+            return ''
+
+        styled_table = table.style.map(advice_style, subset=['Advies'])
+        st.dataframe(styled_table, hide_index=True, use_container_width=True)
 
         st.download_button('⬇️ Download resultaten als CSV',table.to_csv(index=False).encode('utf-8-sig'),'dip_hunter_resultaten.csv','text/csv')
         selected = st.selectbox('Bekijk koersgrafiek', [r['Ticker'] for r in shown])
         st.line_chart(st.session_state['history'][selected]['Close'].rename('Aangepaste slotkoers')) if selected in st.session_state.get('history', {}) else st.caption('Geen koersgrafiek beschikbaar.')
-        st.markdown('''**Interpretatie van de kolommen**
+        st.markdown('''### Interpretatie van de kolommen
+
 - **Ticker:** unieke beurscode van het aandeel.
 - **Naam:** bedrijfsnaam volgens de databron; onbekend als die niet beschikbaar is.
 - **Beurs:** handelsbeurs volgens de databron; onbekend als die niet beschikbaar is.
