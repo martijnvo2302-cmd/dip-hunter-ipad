@@ -62,13 +62,14 @@ button[kind="secondary"] *, button[kind="primary"] * {color:inherit !important;}
 def sticky_table(df, signal_column):
     headers = list(df.columns)
     css = """<style>
-    .pd-scroll{overflow-x:auto;max-width:100%;border:1px solid #d5e1e9;border-radius:10px;background:white;}
-    .pd-table{border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;color:#223746;}
-    .pd-table th,.pd-table td{padding:9px 10px;border-right:1px solid #e4ebf0;border-bottom:1px solid #e4ebf0;background:white;max-width:240px;overflow:hidden;text-overflow:ellipsis;}
+    .pd-scroll{overflow-x:auto;overflow-y:hidden;max-width:100%;width:100%;border:1px solid #d5e1e9;border-radius:10px;background:#fff;position:relative;-webkit-overflow-scrolling:touch;isolation:isolate;}
+    .pd-table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%;font-size:13px;white-space:nowrap;color:#101010;}
+    .pd-table th,.pd-table td{box-sizing:border-box;padding:9px 10px;border-right:1px solid #e4ebf0;border-bottom:1px solid #e4ebf0;background:#fff;min-width:125px;max-width:240px;overflow:hidden;text-overflow:ellipsis;}
     .pd-table th{position:sticky;top:0;background:#edf5fa;z-index:2;text-align:left;}
-    .pd-table th:nth-child(1),.pd-table td:nth-child(1){position:sticky;left:0;z-index:3;min-width:85px;width:85px;max-width:85px;}
-    .pd-table th:nth-child(2),.pd-table td:nth-child(2){position:sticky;left:106px;z-index:3;min-width:205px;width:205px;max-width:205px;box-shadow:3px 0 5px -4px #526d7e;}
-    .pd-table th:nth-child(-n+2){z-index:4;background:#edf5fa;}
+    /* Exacte breedtes + identieke offset voorkomen verschuiven/overlap op iPad. */
+    .pd-table th:nth-child(1),.pd-table td:nth-child(1){position:sticky;left:0!important;z-index:5;min-width:100px;width:100px;max-width:100px;background:#fff;background-clip:padding-box;}
+    .pd-table th:nth-child(2),.pd-table td:nth-child(2){position:sticky;left:100px!important;z-index:5;min-width:210px;width:210px;max-width:210px;background:#fff;background-clip:padding-box;box-shadow:4px 0 7px -5px #526d7e;}
+    .pd-table thead th:nth-child(-n+2){z-index:7;background:#edf5fa;}
     .pd-table .wait{color:#a51c24;background:#fee2e2;font-weight:700;}
     .pd-table .buy{color:#166534;background:#dcfce7;font-weight:700;}
     </style>"""
@@ -460,6 +461,7 @@ if 'results' in st.session_state:
                 enriched.append({'Ticker':row['Ticker'], 'Naam':name, 'Beurs':exchange,
                                  'Marktstatus':status, 'Advies':trade_advice(row,status,drop), **{k:v for k,v in row.items() if k != 'Ticker'}})
         table = pd.DataFrame(enriched)
+        table = table[[c for c in table.columns if c != 'Beurs'] + ['Beurs']]
         # Colour only the advice column; CSV retains the original plain-text values.
         def advice_style(value):
             if value == 'WACHTEN':
@@ -507,6 +509,10 @@ if 'history' in st.session_state:
         with st.spinner('Groei- en waarderingsgegevens ophalen…'):
             peak_rows = [peak_enrich(row) for row in candidates[:15]]
         peak_table = pd.DataFrame(peak_rows)
+        # Signaal onmiddellijk voor Datum koers; Beurs altijd de laatste kolom.
+        peak_columns = [c for c in peak_table.columns if c not in ('Signaal', 'Beurs')]
+        peak_columns.insert(peak_columns.index('Datum koers'), 'Signaal')
+        peak_table = peak_table[peak_columns + ['Beurs']]
         def peak_style(value):
             if value == 'VERDER ONDERZOEKEN':
                 return 'color: #166534; background-color: #dcfce7; font-weight: bold'
