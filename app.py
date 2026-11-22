@@ -353,6 +353,8 @@ if 'results' in st.session_state:
         if ms.get('error'):
             st.warning(f'{label}: indexgegevens niet beschikbaar ({ms["error"]}). Advies voor deze regio wordt WACHTEN.')
     st.caption('Marktstatus is een heuristiek op vertraagde dagkoersen: Crash bij ≤ −10% vanaf de hoogste slotkoers in 21 handelsdagen; Correctie bij ≤ −5% of onder het 20-daags gemiddelde; anders Normaal. Geen officiële beursclassificatie. Advies per aandeel gebruikt de eigen regio.')
+    st.header('📉 Dip Hunter — herstelkandidaten')
+    st.caption('Zoekt sterk gedaalde aandelen met mogelijke herstelsignalen. Herstelscore, risicoscore en regionale marktstatus helpen om kandidaten te beoordelen; het koopadvies is geen garantie op rendement.')
     if shown:
         st.caption('Tip: tik op een rij en veeg in de tabel horizontaal om alle gegevens te bekijken.')
         # Enrich only visible rows to limit metadata calls and provider throttling.
@@ -377,8 +379,8 @@ if 'results' in st.session_state:
         st.dataframe(styled_table, hide_index=True, use_container_width=True)
 
         st.download_button('⬇️ Download resultaten als CSV',table.to_csv(index=False).encode('utf-8-sig'),'dip_hunter_resultaten.csv','text/csv')
-        selected = st.selectbox('Bekijk koersgrafiek', [r['Ticker'] for r in shown])
         st.subheader('📊 Dip Hunter — koersgrafiek en indexvergelijking')
+        selected = st.selectbox('Bekijk koersgrafiek', [r['Ticker'] for r in shown])
         comparison_chart(selected, st.session_state.get('history', {}), 'dip_chart')
         with st.expander('📖 Interpretatie Dip Hunter-kolommen', expanded=True):
             for title, description in DIP_EXPLANATIONS:
