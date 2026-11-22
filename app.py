@@ -16,6 +16,40 @@ st.markdown("""<style>
  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 700'%3E%3Cg fill='none' stroke='%235f91b2' stroke-width='4' opacity='.35'%3E%3Cpath d='M0 560 L120 510 190 545 310 405 400 440 510 310 610 340 720 200 810 225 1000 70'/%3E%3Cpath d='M0 595 L120 545 190 580 310 440 400 475 510 345 610 375 720 235 810 260 1000 105' opacity='.35'/%3E%3Cpath d='M0 630 L120 580 190 615 310 475 400 510 510 380 610 410 720 270 810 295 1000 140' opacity='.2'/%3E%3C/g%3E%3C/svg%3E");
  background-position:center, right center; background-size:cover, 85% auto; background-attachment:scroll, fixed; background-repeat:no-repeat;}
 [data-testid="stSidebar"] {background:#f7f9fb;}
+/* v3.7.1: hoog contrast op lichte achtergronden, wit op donkere controls */
+[data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stSidebar"] {color:#101010 !important;}
+[data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3,
+[data-testid="stMain"] h4, [data-testid="stMain"] h5, [data-testid="stMain"] h6,
+[data-testid="stMain"] p, [data-testid="stMain"] label,
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h4, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label,
+[data-testid="stMain"] [data-testid="stCaptionContainer"],
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+[data-testid="stMetricLabel"], [data-testid="stMetricValue"],
+[data-testid="stMarkdownContainer"] {color:#101010 !important;}
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] *,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] * {color:inherit;}
+/* Invoercomponenten met donkere vlakken houden witte letters en iconen. */
+[data-testid="stSidebar"] input, [data-testid="stSidebar"] textarea,
+[data-testid="stSidebar"] [data-baseweb="select"] > div,
+[data-testid="stSidebar"] [data-baseweb="input"] > div,
+[data-testid="stSidebar"] [data-baseweb="textarea"] > div,
+[data-testid="stSidebar"] [data-baseweb="select"] input,
+[data-testid="stSidebar"] [data-baseweb="input"] input,
+[data-testid="stSidebar"] [data-baseweb="textarea"] textarea {color:#fff !important;}
+[data-testid="stSidebar"] [data-baseweb="select"] *,
+[data-testid="stSidebar"] [data-baseweb="input"] button *,
+[data-testid="stSidebar"] [data-baseweb="textarea"] * {color:#fff !important;}
+[data-testid="stSidebar"] [data-baseweb="select"] svg,
+[data-testid="stSidebar"] [data-baseweb="input"] svg {fill:#fff !important;}
+/* Zwarte knoppen: witte tekst, ook voor vraagteken-knoppen. */
+button[kind="secondary"], button[kind="primary"] {color:#fff !important;}
+button[kind="secondary"] *, button[kind="primary"] * {color:inherit !important;}
+/* Tabel blijft zwart op wit. Signaalkleuren zijn functioneel en blijven staan. */
+.pd-table {color:#101010 !important;}
+.pd-table th, .pd-table td {color:#101010;}
+.pd-table .wait {color:#a51c24 !important;}
+.pd-table .buy {color:#166534 !important;}
 [data-testid="stMetric"] {background:rgba(255,255,255,.90);padding:.45rem .5rem;border-radius:.65rem;min-width:0;}
 [data-testid="stMetricLabel"] p {font-size: .78rem !important;line-height:1.1rem !important;}
 [data-testid="stMetricValue"] {font-size:1.6rem !important;}
