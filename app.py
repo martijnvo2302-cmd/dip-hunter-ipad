@@ -1,4 +1,5 @@
 import math
+import html
 import textwrap
 from datetime import datetime, timezone
 import pandas as pd
@@ -7,14 +8,47 @@ import yfinance as yf
 
 st.set_page_config(page_title='PD Hunter', page_icon='📈', layout='wide', initial_sidebar_state='expanded')
 st.title('📈 PD Hunter')
-st.markdown('''<style>
-@media(max-width: 768px) {
- .block-container {padding-top: 1rem; padding-left: .8rem; padding-right: .8rem;}
- div[data-testid="stMetric"] {background: rgba(128,128,128,.07); padding: .6rem; border-radius: .7rem;}
- div[data-testid="stDataFrame"] {max-width: 100%;}
- button {min-height: 44px;}
-}
-</style>''', unsafe_allow_html=True)
+st.markdown("""<style>
+/* v3.7: rustige lichtblauwe hoofdruimte met perspectief-watermerk */
+[data-testid="stAppViewContainer"] {background: #eaf4fa;}
+[data-testid="stMain"] {background-color: #eaf4fa; background-image:
+ linear-gradient(135deg, rgba(234,244,250,.90),rgba(234,244,250,.96)),
+ url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 700'%3E%3Cg fill='none' stroke='%235f91b2' stroke-width='4' opacity='.35'%3E%3Cpath d='M0 560 L120 510 190 545 310 405 400 440 510 310 610 340 720 200 810 225 1000 70'/%3E%3Cpath d='M0 595 L120 545 190 580 310 440 400 475 510 345 610 375 720 235 810 260 1000 105' opacity='.35'/%3E%3Cpath d='M0 630 L120 580 190 615 310 475 400 510 510 380 610 410 720 270 810 295 1000 140' opacity='.2'/%3E%3C/g%3E%3C/svg%3E");
+ background-position:center, right center; background-size:cover, 85% auto; background-attachment:scroll, fixed; background-repeat:no-repeat;}
+[data-testid="stSidebar"] {background:#f7f9fb;}
+[data-testid="stMetric"] {background:rgba(255,255,255,.90);padding:.45rem .5rem;border-radius:.65rem;min-width:0;}
+[data-testid="stMetricLabel"] p {font-size: .78rem !important;line-height:1.1rem !important;}
+[data-testid="stMetricValue"] {font-size:1.6rem !important;}
+[data-testid="stMetricValue"] div {font-size:1.6rem !important;}
+[data-testid="stDataFrame"] {background:#fff;border-radius:.5rem;}
+@media(max-width: 900px) {.block-container {padding-top:1rem;padding-left:.75rem;padding-right:.75rem;}button{min-height:44px;}}
+</style>""", unsafe_allow_html=True)
+
+# HTML-tabel met twee vastgezette kolommen, onafhankelijk van Streamlit-versie.
+def sticky_table(df, signal_column):
+    headers = list(df.columns)
+    css = """<style>
+    .pd-scroll{overflow-x:auto;max-width:100%;border:1px solid #d5e1e9;border-radius:10px;background:white;}
+    .pd-table{border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;color:#223746;}
+    .pd-table th,.pd-table td{padding:9px 10px;border-right:1px solid #e4ebf0;border-bottom:1px solid #e4ebf0;background:white;max-width:240px;overflow:hidden;text-overflow:ellipsis;}
+    .pd-table th{position:sticky;top:0;background:#edf5fa;z-index:2;text-align:left;}
+    .pd-table th:nth-child(1),.pd-table td:nth-child(1){position:sticky;left:0;z-index:3;min-width:85px;width:85px;max-width:85px;}
+    .pd-table th:nth-child(2),.pd-table td:nth-child(2){position:sticky;left:106px;z-index:3;min-width:205px;width:205px;max-width:205px;box-shadow:3px 0 5px -4px #526d7e;}
+    .pd-table th:nth-child(-n+2){z-index:4;background:#edf5fa;}
+    .pd-table .wait{color:#a51c24;background:#fee2e2;font-weight:700;}
+    .pd-table .buy{color:#166534;background:#dcfce7;font-weight:700;}
+    </style>"""
+    head = '<tr>'+''.join('<th title="'+html.escape(str(h),quote=True)+'">'+html.escape(str(h))+'</th>' for h in headers)+'</tr>'
+    body=[]
+    for row in df.itertuples(index=False,name=None):
+        cells=[]
+        for col,val in zip(headers,row):
+            label = '—' if pd.isna(val) else (f'{val:.2f}' if isinstance(val,float) else str(val))
+            klass = ('wait' if label=='WACHTEN' else 'buy' if label in ('KOPEN (signaal)','VERDER ONDERZOEKEN') else '') if col==signal_column else ''
+            cells.append('<td class="'+klass+'" title="'+html.escape(label,quote=True)+'">'+html.escape(label)+'</td>')
+        body.append('<tr>'+''.join(cells)+'</tr>')
+    st.markdown(css+'<div class="pd-scroll"><table class="pd-table"><thead>'+head+'</thead><tbody>'+''.join(body)+'</tbody></table></div>',unsafe_allow_html=True)
+
 st.caption('Dip Hunter + Peak Hunter • VS en Europa • vertraagde/dagkoersen, geen realtime handelsfeed')
 
 US = 'AAPL MSFT NVDA AMD INTC TSLA META AMZN GOOGL NFLX PLTR PYPL SQ COIN HOOD ROKU SHOP UBER ABNB DIS BA NKE PFE MRNA BNTX ENPH FSLR SMCI MU ARM RIVN LCID SOFI SNAP PINS DKNG CRWD PANW ZS MDB SNOW NET DDOG CELH LULU TGT WMT'.split()
@@ -195,15 +229,20 @@ def trade_advice(row, market_status, drop):
     return 'KOPEN (signaal)'
 
 with st.sidebar:
-    st.header('Scannerinstellingen')
+    st.header('⚙️ PD Hunter — instellingen')
+    st.subheader('🌍 Algemeen')
     market = st.selectbox('Markt', ['ALL', 'US', 'EU'])
-    drop = st.slider('Minimale daling in 5 handelsdagen (%)', 5, 40, 15)
-    target = st.slider('Winstdoel (%)', 1, 30, 10)
-    stop = st.slider('Stop-loss (%)', 1, 20, 5)
     budget = st.number_input('Budget per aandeel (€)', min_value=1.0, value=200.0, step=25.0)
     min_vol = st.number_input('Minimale gemiddelde dagomzet (in lokale valuta)', value=1000000, step=500000)
     extra = st.text_area('Extra tickers (komma of spatie gescheiden)', placeholder='AAPL, ASML.AS, SAP.DE')
+    st.divider()
+    st.subheader('📉 Dip Hunter — instellingen')
+    drop = st.slider('Minimale daling in 5 handelsdagen (%)', 5, 40, 15)
+    target = st.slider('Winstdoel (%)', 1, 30, 10)
+    stop = st.slider('Stop-loss (%)', 1, 20, 5)
     only_matches = st.checkbox('Alleen aandelen met daling ≥ grens', value=True)
+    st.divider()
+    st.subheader('📈 Peak Hunter — instellingen')
     peak_days = st.select_slider('Peak Hunter: groeiperiode (handelsdagen)', options=[5,10,20,40], value=20)
     peak_min = st.slider('Peak Hunter: minimale groei (%)', 1, 30, 5)
     peak_max = st.slider('Peak Hunter: maximale groei (%)', 10, 100, 40)
@@ -212,6 +251,25 @@ with st.sidebar:
 @st.dialog('ℹ️ Informatie over PD Hunter')
 def show_information():
     st.info('📱 iPad: tik linksboven op het menu om de scaninstellingen te openen. Veeg horizontaal in de resultatentabel voor meer kolommen.\n\nKoersen: Yahoo Finance via yfinance. Dit zijn dagelijkse OHLCV-koersen, niet gegarandeerd live; vertraging verschilt per beurs. Datum per aandeel staat in de resultaten. Controleer de actuele bied-/laatprijs bij je broker vóór een order.')
+
+@st.dialog('📖 Interpretatie Dip Hunter-kolommen')
+def show_dip_interpretation():
+    for title, description in DIP_EXPLANATIONS:
+        st.markdown(f'- **{title}:** {description}')
+
+@st.dialog('📖 Interpretatie Peak Hunter-kolommen')
+def show_peak_interpretation():
+    for title, description in [
+        ('Groei %','Koersstijging over de gekozen periode.'),
+        ('Trend /100','Technische trendsterkte; hoger betekent meer positieve signalen.'),
+        ('RSI 14','Momentum; een zeer hoge waarde kan oververhitting signaleren.'),
+        ('Omzetgroei % / Winstgroei %','Recent gerapporteerde groeipercentages uit Yahoo-metadata; periode en actualiteit kunnen verschillen.'),
+        ('Forward P/E','Verwachte koers-winstverhouding volgens de databron; laag is niet automatisch goedkoop.'),
+        ('Analistenruimte %','Verschil tussen gemiddeld analistenkoersdoel en laatste koers, geen zekerheid.'),
+        ('Groei/waardering /100','Eenvoudige indicator op basis van beschikbare groei- en waarderingsdata; geen kanspercentage.'),
+        ('Signaal','VERDER ONDERZOEKEN, WACHTEN of ONVOLDOENDE DATA; geen automatisch koopadvies.'),
+    ]:
+        st.markdown(f'- **{title}:** {description}')
 
 if st.button('❔', help='Open informatie over de scanner', key='help_info'):
     show_information()
@@ -338,10 +396,11 @@ if 'results' in st.session_state:
     rows = st.session_state['results']
     matches = [x for x in rows if x['Daling 5d %'] <= -drop]
     c1,c2,c3,c4 = st.columns(4)
-    c1.metric('Tickers in universum',st.session_state['count'])
-    c2.metric('Met bruikbare data + liquiditeit',len(rows))
-    c3.metric('Dips die voldoen',len(matches))
-    c4.metric('Scan uitgevoerd',st.session_state['scan_at'])
+    c1.metric('Tickers',st.session_state['count'])
+    c2.metric('Bruikbare data',len(rows))
+    c3.metric('Dips',len(matches))
+    c4.metric('Scan', 'Voltooid')
+    st.caption('Scan uitgevoerd: '+st.session_state['scan_at']+' · Laatste koersdatum per aandeel staat in de tabellen.')
     shown = matches if only_matches else rows
     shown = sorted(shown, key=lambda x:(-x['Herstel /100'],x['Risico /100'],x['Daling 5d %']))
     market_statuses = st.session_state.get('market_statuses', {})
@@ -376,15 +435,14 @@ if 'results' in st.session_state:
             return ''
 
         styled_table = table.style.map(advice_style, subset=['Advies'])
-        st.dataframe(styled_table, hide_index=True, use_container_width=True)
+        sticky_table(table, 'Advies')
 
         st.download_button('⬇️ Download resultaten als CSV',table.to_csv(index=False).encode('utf-8-sig'),'dip_hunter_resultaten.csv','text/csv')
         st.subheader('📊 Dip Hunter — koersgrafiek en indexvergelijking')
         selected = st.selectbox('Bekijk koersgrafiek', [r['Ticker'] for r in shown])
         comparison_chart(selected, st.session_state.get('history', {}), 'dip_chart')
-        with st.expander('📖 Interpretatie Dip Hunter-kolommen', expanded=True):
-            for title, description in DIP_EXPLANATIONS:
-                st.write(f'• **{title}:** {description}')
+        if st.button('❔ Interpretatie Dip Hunter', key='dip_interpretatie', help='Bekijk uitleg van de Dip Hunter-kolommen'):
+            show_dip_interpretation()
     else:
         st.warning('Geen kandidaten met deze filters. Dit is een geldig resultaat; de scanner verzint geen signalen. Probeer eventueel de grens of het liquiditeitsfilter aan te passen.')
     if st.session_state.get('errors'):
@@ -421,7 +479,7 @@ if 'history' in st.session_state:
             if value == 'WACHTEN':
                 return 'color: #b91c1c; background-color: #fee2e2; font-weight: bold'
             return 'font-weight: bold'
-        st.dataframe(peak_table.style.map(peak_style,subset=['Signaal']),hide_index=True,use_container_width=True)
+        sticky_table(peak_table, 'Signaal')
         st.download_button('⬇️ Download Peak Hunter als CSV',peak_table.to_csv(index=False).encode('utf-8-sig'),'peak_hunter_resultaten.csv','text/csv')
         st.subheader('📊 Peak Hunter — koersgrafiek en indexvergelijking')
         peak_ticker = st.selectbox('Kies een Peak Hunter-aandeel', peak_table['Ticker'].tolist(), key='peak_chart_ticker')
@@ -430,18 +488,8 @@ if 'history' in st.session_state:
         st.caption('Analistenruimte = gemiddeld koersdoel versus laatste slotkoers; geen voorspelling. Ontbrekende data blijven leeg. De score toetst groeicijfers en waarderingsindicaties, niet de kwaliteit van de bedrijfsstrategie.')
     else:
         st.info('Geen Peak Hunter-kandidaten binnen deze instellingen. Pas eventueel de groeigrenzen aan.')
-    with st.expander('📖 Interpretatie Peak Hunter-kolommen', expanded=True):
-        for title, description in [
-            ('Groei %','Koersstijging over de gekozen periode.'),
-            ('Trend /100','Technische trendsterkte; hoger betekent meer positieve signalen.'),
-            ('RSI 14','Momentum; een zeer hoge waarde kan oververhitting signaleren.'),
-            ('Omzetgroei % / Winstgroei %','Recent gerapporteerde groeipercentages uit Yahoo-metadata; periode en actualiteit kunnen verschillen.'),
-            ('Forward P/E','Verwachte koers-winstverhouding volgens de databron; laag is niet automatisch goedkoop.'),
-            ('Analistenruimte %','Verschil tussen gemiddeld analistenkoersdoel en laatste koers, geen zekerheid.'),
-            ('Groei/waardering /100','Eenvoudige indicator op basis van beschikbare groei- en waarderingsdata; geen kanspercentage.'),
-            ('Signaal','VERDER ONDERZOEKEN, WACHTEN of ONVOLDOENDE DATA; geen automatisch koopadvies.'),
-        ]:
-            st.write(f'• **{title}:** {description}')
+    if st.button('❔ Interpretatie Peak Hunter', key='peak_interpretatie', help='Bekijk uitleg van de Peak Hunter-kolommen'):
+        show_peak_interpretation()
 else:
     st.info('Voer eerst een scan uit om ook Peak Hunter-resultaten te zien.')
 
