@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 import html
 import textwrap
 from datetime import datetime, timezone
@@ -6,7 +7,7 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-st.set_page_config(page_title='PD Hunter', page_icon='📈', layout='wide', initial_sidebar_state='auto')
+st.set_page_config(page_title='PD Hunter', page_icon=str(Path(__file__).resolve().parent / 'static' / 'pd-icon.png'), layout='wide', initial_sidebar_state='auto')
 st.title('📈 PD Hunter')
 st.markdown("""<style>
 /* v3.7: rustige lichtblauwe hoofdruimte met perspectief-watermerk */
