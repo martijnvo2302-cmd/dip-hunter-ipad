@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-st.set_page_config(page_title='PD Hunter', page_icon='📈', layout='wide', initial_sidebar_state='expanded')
+st.set_page_config(page_title='PD Hunter', page_icon='📈', layout='wide', initial_sidebar_state='auto')
 st.title('📈 PD Hunter')
 st.markdown("""<style>
 /* v3.7: rustige lichtblauwe hoofdruimte met perspectief-watermerk */
@@ -16,46 +16,50 @@ st.markdown("""<style>
  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 700'%3E%3Cg fill='none' stroke='%235f91b2' stroke-width='4' opacity='.35'%3E%3Cpath d='M0 560 L120 510 190 545 310 405 400 440 510 310 610 340 720 200 810 225 1000 70'/%3E%3Cpath d='M0 595 L120 545 190 580 310 440 400 475 510 345 610 375 720 235 810 260 1000 105' opacity='.35'/%3E%3Cpath d='M0 630 L120 580 190 615 310 475 400 510 510 380 610 410 720 270 810 295 1000 140' opacity='.2'/%3E%3C/g%3E%3C/svg%3E");
  background-position:center, right center; background-size:cover, 85% auto; background-attachment:scroll, fixed; background-repeat:no-repeat;}
 [data-testid="stSidebar"] {background:#f7f9fb;}
-/* v3.7.1: hoog contrast op lichte achtergronden, wit op donkere controls */
-[data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stSidebar"] {color:#101010 !important;}
-[data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3,
-[data-testid="stMain"] h4, [data-testid="stMain"] h5, [data-testid="stMain"] h6,
-[data-testid="stMain"] p, [data-testid="stMain"] label,
-[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3,
-[data-testid="stSidebar"] h4, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label,
-[data-testid="stMain"] [data-testid="stCaptionContainer"],
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+/* v3.8: expliciete contrastparen, onafhankelijk van systeemthema */
+.stApp, [data-testid="stMain"], [data-testid="stSidebar"], [data-testid="stHeader"] {color:#101010; color-scheme:light;}
+[data-testid="stHeader"] {background:#eaf4fa;}
+[data-testid="stMain"] :is(h1,h2,h3,h4,h5,h6,p,label),
+[data-testid="stSidebar"] :is(h1,h2,h3,h4,h5,h6,p,label),
 [data-testid="stMetricLabel"], [data-testid="stMetricValue"],
-[data-testid="stMarkdownContainer"] {color:#101010 !important;}
-[data-testid="stMain"] [data-testid="stMarkdownContainer"] *,
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] * {color:inherit;}
-/* Invoercomponenten met donkere vlakken houden witte letters en iconen. */
-[data-testid="stSidebar"] input, [data-testid="stSidebar"] textarea,
-[data-testid="stSidebar"] [data-baseweb="select"] > div,
-[data-testid="stSidebar"] [data-baseweb="input"] > div,
-[data-testid="stSidebar"] [data-baseweb="textarea"] > div,
-[data-testid="stSidebar"] [data-baseweb="select"] input,
-[data-testid="stSidebar"] [data-baseweb="input"] input,
-[data-testid="stSidebar"] [data-baseweb="textarea"] textarea {color:#fff !important;}
-[data-testid="stSidebar"] [data-baseweb="select"] *,
-[data-testid="stSidebar"] [data-baseweb="input"] button *,
-[data-testid="stSidebar"] [data-baseweb="textarea"] * {color:#fff !important;}
-[data-testid="stSidebar"] [data-baseweb="select"] svg,
-[data-testid="stSidebar"] [data-baseweb="input"] svg {fill:#fff !important;}
-/* Zwarte knoppen: witte tekst, ook voor vraagteken-knoppen. */
-button[kind="secondary"], button[kind="primary"] {color:#fff !important;}
-button[kind="secondary"] *, button[kind="primary"] * {color:inherit !important;}
-/* Tabel blijft zwart op wit. Signaalkleuren zijn functioneel en blijven staan. */
-.pd-table {color:#101010 !important;}
-.pd-table th, .pd-table td {color:#101010;}
-.pd-table .wait {color:#a51c24 !important;}
-.pd-table .buy {color:#166534 !important;}
+[data-testid="stCaptionContainer"] {color:#101010 !important;}
+[data-baseweb="select"] > div, [data-baseweb="input"] > div,
+[data-baseweb="textarea"] > div, [data-baseweb="base-input"] {background:#20252a !important;color:#fff !important;}
+[data-baseweb="select"] > div *, [data-baseweb="input"] > div *,
+[data-baseweb="textarea"] > div * {color:#fff !important;}
+[data-baseweb="select"] svg, [data-baseweb="input"] svg {fill:#fff !important;}
+input::placeholder, textarea::placeholder {color:#dce2e7 !important;opacity:1;}
+[data-baseweb="popover"], [role="listbox"], [role="option"] {background:#fff;color:#101010;}
+[role="option"] * {color:#101010 !important;}
+button[kind="secondary"], button[kind="primary"], [data-testid="stDownloadButton"] button {background:#20252a !important;color:#fff !important;border:1px solid #20252a;}
+button[kind="secondary"] *, button[kind="primary"] *, [data-testid="stDownloadButton"] button * {color:#fff !important;}
+button:focus-visible, input:focus-visible {outline:2px solid #2874a6;outline-offset:2px;}
+[role="dialog"] {background:#fff !important;color:#101010 !important;}
+[role="dialog"] :is(h1,h2,h3,p,label) {color:#101010 !important;}
+.pd-table {color:#101010;}
 [data-testid="stMetric"] {background:rgba(255,255,255,.90);padding:.45rem .5rem;border-radius:.65rem;min-width:0;}
 [data-testid="stMetricLabel"] p {font-size: .78rem !important;line-height:1.1rem !important;}
 [data-testid="stMetricValue"] {font-size:1.6rem !important;}
 [data-testid="stMetricValue"] div {font-size:1.6rem !important;}
 [data-testid="stDataFrame"] {background:#fff;border-radius:.5rem;}
-@media(max-width: 900px) {.block-container {padding-top:1rem;padding-left:.75rem;padding-right:.75rem;}button{min-height:44px;}}
+
+.pd-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.pd-metric {background:#fff;color:#101010;border-radius:10px;padding:12px;min-width:0;}
+.pd-metric-label {font-size:13px;line-height:1.3;}
+.pd-metric-value {font-size:24px;font-weight:600;overflow-wrap:anywhere;}
+@media(max-width: 767px) {
+ .block-container {padding-top:4rem;padding-left:12px;padding-right:12px;}
+ .pd-metrics {grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+ .pd-metric-value {font-size:22px;}
+ [data-testid="stMain"] h1 {font-size:1.9rem;}
+ [data-testid="stMain"] h2 {font-size:1.45rem;}
+ [data-testid="stMain"] h3 {font-size:1.2rem;}
+ [data-testid="stSidebar"] {max-width:100vw;}
+ button {min-height:44px;}
+ input,textarea {font-size:16px !important;}
+ [data-testid="stMain"] {background-attachment:scroll,scroll;}
+}
+
 </style>""", unsafe_allow_html=True)
 
 # HTML-tabel met twee vastgezette kolommen, onafhankelijk van Streamlit-versie.
@@ -69,6 +73,11 @@ def sticky_table(df, signal_column):
     /* Exacte breedtes + identieke offset voorkomen verschuiven/overlap op iPad. */
     .pd-table th:nth-child(1),.pd-table td:nth-child(1){position:sticky;left:0!important;z-index:5;min-width:100px;width:100px;max-width:100px;background:#fff;background-clip:padding-box;}
     .pd-table th:nth-child(2),.pd-table td:nth-child(2){position:sticky;left:100px!important;z-index:5;min-width:210px;width:210px;max-width:210px;background:#fff;background-clip:padding-box;box-shadow:4px 0 7px -5px #526d7e;}
+    @media(max-width:767px){
+      .pd-table th:nth-child(1),.pd-table td:nth-child(1){min-width:82px;width:82px;max-width:82px;padding:8px 5px;}
+      .pd-table th:nth-child(2),.pd-table td:nth-child(2){left:82px!important;min-width:104px;width:104px;max-width:104px;white-space:normal;overflow-wrap:anywhere;padding:8px 5px;}
+      .pd-table th,.pd-table td{font-size:13px;}
+    }
     .pd-table thead th:nth-child(-n+2){z-index:7;background:#edf5fa;}
     .pd-table .wait{color:#a51c24;background:#fee2e2;font-weight:700;}
     .pd-table .buy{color:#166534;background:#dcfce7;font-weight:700;}
@@ -430,11 +439,8 @@ if run:
 if 'results' in st.session_state:
     rows = st.session_state['results']
     matches = [x for x in rows if x['Daling 5d %'] <= -drop]
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric('Tickers',st.session_state['count'])
-    c2.metric('Bruikbare data',len(rows))
-    c3.metric('Dips',len(matches))
-    c4.metric('Scan', 'Voltooid')
+    metrics = [('Tickers',st.session_state['count']),('Bruikbare data',len(rows)),('Dips',len(matches)),('Scan','Voltooid')]
+    st.markdown('<div class="pd-metrics">'+''.join('<div class="pd-metric"><div class="pd-metric-label">'+html.escape(str(label))+'</div><div class="pd-metric-value">'+html.escape(str(value))+'</div></div>' for label,value in metrics)+'</div>',unsafe_allow_html=True)
     st.caption('Scan uitgevoerd: '+st.session_state['scan_at']+' · Laatste koersdatum per aandeel staat in de tabellen.')
     shown = matches if only_matches else rows
     shown = sorted(shown, key=lambda x:(-x['Herstel /100'],x['Risico /100'],x['Daling 5d %']))
@@ -485,7 +491,7 @@ if 'results' in st.session_state:
         with st.expander(f'Waarschuwingen databron ({len(st.session_state["errors"])})'):
             st.write('\n'.join(st.session_state['errors'][:100]))
 else:
-    st.write('Klik links op **Scan nu** om de ingestelde aandelen te analyseren.')
+    st.write('Open zo nodig het instellingenmenu en klik op **Scan nu** om de ingestelde aandelen te analyseren.')
 
 st.divider()
 st.header('📈 Peak Hunter — groeikandidaten')
